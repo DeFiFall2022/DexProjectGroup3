@@ -17,6 +17,7 @@ const topLiquidityPools = [uniSwap, sushiSwap, dooarSwap] # combining the log_em
 
 const convRateETHToWETH = 1 / (1 * 10^18) # 1 ETH = 1 * 10^18 WETH (18 decimal places)
 const convRateWETHToUSD = 1295.93 # 1 WETH = 1295.93 USD as of Oct 19 2022 1:35 AM MST
+const convRateUSDCtoUSD = 1 / (1 * 10^6) # 1 USDC = 1 * 10^6 USD (6 decimal places)
 
 const syncAddress = "1C411E9A96E071241C2F21F7726B17AE89E3CAB4C78BE50E062B03A9FFFBBAD1" # topic0 for sync events
 
@@ -92,7 +93,6 @@ if useTestEnvironment == true
     global dexDF = vcat(dexDF, dexFile)
 
 else  
-    
     dexFiles = readdir(dexDatabasePath)[1:end-1]
     for f in dexFiles
         indDexFile = load_object(dexDatabasePath * f)
@@ -106,10 +106,10 @@ end
 # This code specifically will be graphing daily TVL (total value locked) for each pool
 
 # Data clean-up needed for data0 and data1 (we will use these for TVL)
-# This data is in string hexadecimal in ETH, so we will need to do 3 things:
-# Convert hex to decimal (ETH) -> ETH to WETH -> then WETH to USD
+# data0 is in string hexadecimal in USDC, so we will need to do 2 things: convert hex to decimal (USDC) -> USDC to USD
+# data1 is in string hexadecimal in ETH, so we will need to do 3 things: convert hex to decimal (ETH) -> ETH to WETH -> then WETH to USD
 
-dexDF.:data0 = strToInt.(dexDF.:data0) * convRateETHToWETH * convRateWETHToUSD
+dexDF.:data0 = strToInt.(dexDF.:data0) * convRateUSDCtoUSD
 dexDF.:data1 = strToInt.(dexDF.:data1) * convRateETHToWETH * convRateWETHToUSD
 
 # TVL = data0 + data1
