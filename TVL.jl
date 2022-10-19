@@ -134,7 +134,7 @@ for LP in topLiquidityPools
 
     # Concatenate TVL data by day
 
-    dailyTVL = combine(groupby(syncOnlyDF, [:Date]), :TVL => sum) 
+    dailyTVL = combine(groupby(syncOnlyDF, [:Date]), :TVL => mean) 
 
     # Export data as CSV to desired workspace
 
