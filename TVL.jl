@@ -1,4 +1,51 @@
+# PACKAGE AREA
+
 using DataFrames, CSV, VegaLite, Dates, JLD2, DataFramesMeta, Plots, StatsPlots, Tables, Statistics
+
+# CONSTANT AREA - made for readability
+
+const useTestEnvironment = false # change this to true/false when you want to run code on 1 dex file vs. all 10 dex files
+
+const dexDatabasePath = "/home/DefiClass2022/databases/dexes/" # won't change for this project
+const personalPath = "/home/markosch.saure/" # path used to for saving CSV files
+const easyFile = "dexes_2022_10.jld2" # use this file for easy testing
+
+const uniSwap = "B4E16D0168E52D35CACD2C6185B44281EC28C9DC" # log_emitter for Uniswap
+const sushiSwap = "397FF1542F962076D0BFE58EA045FFA2D347ACA0" # log_emitter for SushiSwap
+const dooarSwap = "9C2DC3D5FFCECF61312C5F4C00660695B32FB3D1" # log_emitter for dooarSwap
+const topLiquidityPools = [uniSwap, sushiSwap, dooarSwap] # combining the log_emitters
+
+const convRateETHToWETH = 1 / (1 * 10^18) # 1 ETH = 1 * 10^18 WETH (18 decimal places)
+const convRateWETHToUSD = 1295.93 # 1 WETH = 1295.93 USD as of Oct 19 2022 1:35 AM MST
+
+const syncAddress = "1C411E9A96E071241C2F21F7726B17AE89E3CAB4C78BE50E062B03A9FFFBBAD1" # topic0 for sync events
+
+#===============================================#
+
+# HELPER FUNCTION AREA
+
+# signed_at is the Date column but also includes the timestamp; this function splits the date and timestamp
+
+function splitDate(myDate)
+    dateParts = split(myDate, " ")
+    return dateParts[1]
+end
+
+# data0 and data1 are strings that should be ints; this function converts strings to ints
+
+function strToInt(string)
+    if isequal(string, missing)
+        return 0    
+    else
+        return parse(BigInt, string, base=16)
+    end
+end
+
+#===============================================#
+
+# ACTUAL CODE STARTS HERE
+
+# empty dataframe to store all dex data; based off of previous Token project
 
 dexDF = DataFrame(
     chain_id = Union{Missing,Int64}[],
@@ -36,69 +83,27 @@ dexDF = DataFrame(
     fees_paid = String[]
 )
 
-#===============================================#
+# If testing, only load 1 file into the dex dataframe (for speed)
+# Otherwise, iterate through all the dex files and append their data into the dex dataframe
 
-# CONSTANT AREA - made for readability
+if useTestEnvironment == true
 
-const dexDatabasePath = "/home/DefiClass2022/databases/dexes/" # won't change for this project
-const personalPath = "/home/markosch.saure/" # path used to for saving CSV files
-const easyFile = "dexes_2022_10.jld2" # use this file for easy testing
+    dexFile = load_object(dexDatabasePath * easyFile)
+    global dexDF = vcat(dexDF, dexFile)
 
-const uniSwap = "B4E16D0168E52D35CACD2C6185B44281EC28C9DC" # log_emitter for Uniswap
-const sushiSwap = "397FF1542F962076D0BFE58EA045FFA2D347ACA0" # log_emitter for SushiSwap
-const dooarSwap = "9C2DC3D5FFCECF61312C5F4C00660695B32FB3D1" # log_emitter for dooarSwap
-const topLiquidityPools = [uniSwap, sushiSwap, dooarSwap] # combining the log_emitters
-
-const convRateETHToWETH = 1 / (1 * 10^18) # 1 ETH = 1 * 10^18 WETH (18 decimal places)
-const convRateWETHToUSD = 1295.93 # 1 WETH = 1295.93 USD as of Oct 19 2022 1:35 AM MST
-
-const syncAddress = "1C411E9A96E071241C2F21F7726B17AE89E3CAB4C78BE50E062B03A9FFFBBAD1" # topic0 for sync events
-
-#===============================================#
-
-# HELPER FUNCTION AREA
-
-# signed_at is the Date column but also includes the timestamp; this function splits the date and timestamp
-
-function splitDate(myDate)
-    dateParts = split(myDate, " ")
-    return dateParts[1]
-end
-
-# data0 and data1 are strings that should be ints; this function converts strings to ints
-
-function strToInt(string)
-    if isequal(string, missing)
-        return 0    
-    else
-        return parse(BigInt, string, base=16)
+else  
+    
+    dexFiles = readdir(dexDatabasePath)[1:end-1]
+    for f in dexFiles
+        indDexFile = load_object(dexDatabasePath * f)
+        global dexDF = vcat(dexDF, indDexFile)
     end
-end
 
-# used for the LP names to export data to CSV; macro to return the name of a function
-
-macro Name(arg)
-    string(arg)
- end
-
-#===============================================#
-
-# ACTUAL CODE STARTS HERE
-
-dexFiles = readdir(dexDatabasePath)[1:end-1]
-
-for f in dexFiles
-    indDexFile = load_object(dexDatabasePath * f)
-    global dexDF = vcat(dexDataFrame, indDexFile)
-end
-
-# Testing: load only the 1st file for speed
-#dexFile = load_object(dexDatabasePath * easyFile)
-#global dexDF = vcat(dexDF, dexFile)
+end 
 
 # We will be analyzing the LP's with the most activity (i.e. most sync events aka UniSwap, SushiSwap, and DooarSwap)
 # Note that this was determined from another set of code
-# This code specifically will be graphing daily TVL (total value locked) for each pool.
+# This code specifically will be graphing daily TVL (total value locked) for each pool
 
 # Data clean-up needed for data0 and data1 (we will use these for TVL)
 # This data is in string hexadecimal in ETH, so we will need to do 3 things:
